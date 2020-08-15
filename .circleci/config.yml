@@ -8,15 +8,23 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - data-covid-19-sfbayarea-{{ arch }}-{{ checksum "requirements.txt" }}-{{ checksum "requirements-dev.txt" }}
-            - data-covid-19-sfbayarea-{{ arch }}-
+            - data-covid-19-sfbayarea-v1-{{ arch }}-{{ checksum "requirements.txt" }}-{{ checksum "requirements-dev.txt" }}
+            - data-covid-19-sfbayarea-v1-{{ arch }}-
 
       - run:
           name: Install Dependencies
-          command: sh install.sh
+          command: |
+            # FIXME: install.sh is currently broken because of a bug in
+            # webdrivermanager. See: https://github.com/rasjani/webdrivermanager/issues/35
+            # For now, do each install step manually.
+            # ./install.sh
+            python3 -m venv env
+            source env/bin/activate
+            pip install -r requirements.txt
+            pip install -r requirements-dev.txt
 
       - save_cache:
-          key: data-covid-19-sfbayarea-{{ arch }}-{{ checksum "requirements.txt" }}-{{ checksum "requirements-dev.txt" }}
+          key: data-covid-19-sfbayarea-v1-{{ arch }}-{{ checksum "requirements.txt" }}-{{ checksum "requirements-dev.txt" }}
           paths:
             - env
 
@@ -36,7 +44,41 @@ jobs:
             . env/bin/activate
             mypy .
 
+  test:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - data-covid-19-sfbayarea-v1-{{ arch }}-{{ checksum "requirements.txt" }}-{{ checksum "requirements-dev.txt" }}
+            - data-covid-19-sfbayarea-v1-{{ arch }}-
+
+      - run:
+          name: Install Dependencies
+          command: |
+            # FIXME: install.sh is currently broken because of a bug in
+            # webdrivermanager. See: https://github.com/rasjani/webdrivermanager/issues/35
+            # For now, do each install step manually.
+            # ./install.sh
+            python3 -m venv env
+            source env/bin/activate
+            pip install -r requirements.txt
+            pip install -r requirements-dev.txt
+
+      - save_cache:
+          key: data-covid-19-sfbayarea-v1-{{ arch }}-{{ checksum "requirements.txt" }}-{{ checksum "requirements-dev.txt" }}
+          paths:
+            - env
+
+      - run:
+          name: Run Tests
+          command: |
+            . env/bin/activate
+            python -m pytest -v .
+
 workflows:
   build:
     jobs:
       - lint
+      - test
