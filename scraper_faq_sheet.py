@@ -12,16 +12,21 @@ Grabs data from the 'FAQ Content' CSV and turns it into nice JSON: a main faq ob
     ]
     etc
 In addition to an array of Question objects, each Section incorporates its title and a 'last updated' date value. For the Python intermediary stage (between CSV stream  and JSON) we will create a hierarchy of nested dictionaries and lists equivalent to the JSON objects and arrays.
+
+Execute with: $ python3 scraper_faq_sheet.py path/to/where/I/want/faq_json
 """
 
+#!/usr/bin/env python3
 import requests
 import json
 import csv
 import datetime
+import sys
+from typing import Iterable, Dict, List, Any
 
 
 # function to grab data from a google sheet + return as reader object
-def google_sheet_csv_data(sheet, gid):
+def google_sheet_csv_data(sheet: str, gid: str) -> Iterable[List[str]]:
     url = f'https://docs.google.com/spreadsheets/d/{sheet}/export'
     response = requests.get(url, params={
         'format': 'csv',
@@ -33,8 +38,10 @@ def google_sheet_csv_data(sheet, gid):
 
 
 # Pass faq Content sheet id and gid to function
-reader = google_sheet_csv_data('1_wBXS62S5oBQrwetGc8_-dFvDjEmNqzqHwUeP-DzkYs',
- '1318925039')
+_reader = google_sheet_csv_data(
+    '1_wBXS62S5oBQrwetGc8_-dFvDjEmNqzqHwUeP-DzkYs',
+    '1318925039'
+ )
 
 # Date, to be updated each time the program runs, in UTC
 date = datetime.datetime.utcnow().strftime('%Y-%m-%d')
@@ -43,26 +50,26 @@ date = datetime.datetime.utcnow().strftime('%Y-%m-%d')
 # Create a list to contain our Section objects
 # Place the Sections list inside the main FAQ dictionary
 faq_dict = {}
-sections_list = []
+sections_list: List[Dict] = []
 faq_dict['faqItems'] = sections_list
 
 # Ensure only first two columns in each row are used
 # Now arrange the Sections and Questions in a JSON-friendly way
-for index, row in enumerate(reader):
+for index, row in enumerate(_reader):
     rowtype, rowval, *_rest = row
     if rowtype == 'Category':   # We don't need this row
         pass
     elif rowtype == 'Section Head':
-        section = {}   # Create a dictionary for a Section
+        section: Dict[str, Any] = {}   # Create a dictionary for a Section
         sections_list.append(section)   # Add new Section to Sections list
         section['title'] = rowval   # Give the Section its title
         section['lastUpdatedAt'] = date   # a 'last updated' value
-        questions_list = []   # Create list to contain questions
-        section['qa'] = questions_list   # add our Questions list to its Section
+        questions_list: List[Dict] = []   # Create list to contain questions
+        section['qa'] = questions_list   # add new Questions list to its Section
     elif rowtype == 'Q':
         question = {}   # Create new Question dictionary
         question['q'] = rowval   # the Question's title
-        questions_list.append(question)   # Append Question to its given Section
+        questions_list.append(question)   # Append Question to given Section
     elif rowtype == 'A':   # Now the same for Answers & Links
         question['a'] = rowval
     elif rowtype == 'link':
@@ -74,6 +81,6 @@ for index, row in enumerate(reader):
     else:
         raise ValueError(f'Unknown row header: "{rowtype}"')
 
-# Create formatted json file
-with open('faq.json', 'w') as f:   # Create JSON output file
-    json.dump(faq_dict, f, indent=2)   # Put FAQ Content in output file as JSON
+# Create formatted json file; write to file object ready to be assigned destination at execution
+faq_json = json.dumps(faq_dict, indent=2)
+sys.stdout.write(faq_json)
